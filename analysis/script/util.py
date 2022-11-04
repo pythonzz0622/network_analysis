@@ -8,10 +8,14 @@ import plotly.graph_objects as go
 from matplotlib import font_manager, rc
 rc('font', family='AppleGothic')
 
-def get_data():
+def get_data(data_path , b_a , b_a_2 , loc):
 
-    raw = pd.read_excel('../data/다시최종_경남2.xlsx')
+
+    raw = pd.read_excel(data_path)
     # 이상치 제거
+    if loc == '경남':
+        raw = raw[raw['시도'] == '경남']
+
     raw = raw[raw['거래금액'] > 0]
     raw['사업분야'].value_counts()
 
@@ -20,25 +24,56 @@ def get_data():
     raw['거래처명'] = raw['거래처명'].apply(lambda x: re.sub('\(주\)', '', x))
 
     # 업체명의 사업분야가 IT제조이면서 사업분야가 IT제조인거 가져오기
-    raw = raw[(raw['업체명_사업분야'] == '1.IT제조') & (raw['사업분야'] == '1.IT제조')]
+    raw = raw[(raw['업체명_사업분야'] == b_a) & (raw['사업분야'] == b_a_2)]
 
+    ## 기업 규모에 따른 나누기
+    ## raw = raw[raw['업체명사업체규모'] == '벤처기업']
+
+
+
+    '''
     # 업체명이나 거래처명이 0번 초과해서 언급된 것들 select 하기
     selected = [k for k, v in zip(Counter(raw['업체명'].tolist() + raw['거래처명'].tolist()).keys(),
                                   Counter(raw['업체명'].tolist() + raw['거래처명'].tolist()).values()) if v > 0]
+    ## 1. 거래처 구매처 모두 합한 것
+    temp = raw[raw['거래구분'] == '판매처']
+    cnt = [(a, b) for a, b in zip(temp['업체명'], temp['거래처명']) if (a in selected) & (b in selected)]
+ 
+    temp = raw[raw['거래구분'] == '구매처']
+    cnt = cnt + [(a, b) for a, b in zip(temp['업체명'], temp['거래처명']) if (a in selected) & (b in selected)]
 
+    ## 2.    
     # 선택된 곳중에서 거래가 판매처인 곳의 금액을 가중치로 넘기기
     temp = raw[raw['거래구분'] == '판매처']
     cnt = [(a, b) for a, b in zip(temp['업체명'], temp['거래처명']) if (a in selected) & (b in selected)]
-    w = temp['거래금액'].tolist()
-
+    
+    ## 3.
     # 선택된 곳중에서 거래가 구매처인 곳의 금액을 가중치로 넘기기
     temp = raw[raw['거래구분'] == '구매처']
     cnt = cnt + [(a, b) for a, b in zip(temp['업체명'], temp['거래처명']) if (a in selected) & (b in selected)]
-    w = w + temp['거래금액'].tolist()
+    
+    ## 이것만 쓰면됨
+    plt.figure(figsize = (20,20))
+    G = nx.DiGraph()
+    
+    G.add_edges_from(cnt,relation='cnt')
+    
+    pos=nx.spring_layout(G) # 각 노드, 엣지를 draw하기 위한 position 정보
+    relation = nx.get_edge_attributes(G, 'relation')
+    
+    #nx.draw(G,pos, with_labels=True, edge_color='white')
+    nx.draw_networkx_edges(G,pos, edgelist=cnt, connectionstyle='arc3, rad = -0.2', arrowstyle='->', width = 0.2)
+    nx.draw_networkx_labels(G,pos,font_family=font,font_size=10)
+    plt.show()
+    '''
 
+    # 구매처가 top5인 부분만 남기기
     temp = raw[raw['거래구분'] == '구매처']
     top5 = temp.groupby(['업체명']).sum()['거래금액'].sort_values(ascending=False).index[:5]
 
+    cnt_list = []
+    w_list = []
+    node_list = []
     for f in top5:
         temp2 = temp[temp['업체명'] == f]
         acc_list = temp2['거래처명'].tolist()
@@ -49,22 +84,19 @@ def get_data():
         w = temp2['거래금액'].tolist()
         w = [(sorted(w).index(i) + 1) * 1.5 for i in w]
 
-        plt.figure(figsize=(10, 10))
-        G = nx.DiGraph()
+        cnt_list.append(cnt)
+        w_list.append(w)
 
-        G.add_edges_from(cnt, relation='cnt')
+        data_list = []
+        for cn in cnt:
+            data_list.append(cn[0])
+            data_list.append(cn[1])
+        data_list = list(set(data_list))
+        node_list.append(data_list)
 
-        pos = nx.spring_layout(G)  # 각 노드, 엣지를 draw하기 위한 position 정보
-        pos[f] = np.array([0, 0])
-        # nx.draw_networkx_nodes(G, pos, node_size=3000, node_color=['yellow' if i == f else 'gray' for i in pos.keys()])
-        # nx.draw_networkx_edges(G, pos, edgelist=cnt, arrowstyle='-|>', arrowsize=50, width=w, edge_color='lightgray')
-        # if f == '유니온':
-        #     break
-        cnt, w, pos, G
+    return node_list , cnt_list , w_list , top5
 
-    return cnt , w, pos , G
-
-def get_node_trace(G):
+def get_node_trace(G , company):
     node_x = []
     node_y = []
     for node in G.nodes():
@@ -76,28 +108,21 @@ def get_node_trace(G):
         x=node_x, y=node_y,
         mode='markers+text',
         marker=dict(
-            showscale=True,
             colorscale='YlGnBu',
-            reversescale=True,
-            color=[],
-            size=[50 ,70 , 50 , 50 , 50 , 50 , 50],
-            colorbar=dict(
-                thickness=15,
-                title='Node Connections',
-                xanchor='left',
-                titleside='right'
-            ),
-            line_width=2))
+                    reversescale=True,
+            line_width=2)
+        , textposition="top center"
+    )
     node_adjacencies = []
     node_text = []
     node_size = []
     for node, adjacencies in enumerate(G.adjacency()):
-        if adjacencies[0] == '정민기전':
+        if adjacencies[0] == company:
             node_adjacencies.append(5)
             node_size.append(70)
         else:
             node_size.append(50)
-            node_adjacencies.append(1)
+            node_adjacencies.append(4)
         node_text.append(adjacencies[0])
 
     node_trace['marker']['color'] = node_adjacencies
@@ -107,12 +132,13 @@ def get_node_trace(G):
     return node_trace
 
 
-def get_edge_trace(G):
+
+def get_edge_trace(G  , weight):
     #### make edge
     edge_x = []
     edge_y = []
     annotation_list = []
-    for edge in G.edges():
+    for i, edge in enumerate(G.edges()):
         x0, y0 = G.nodes[edge[0]]['pos']
         x1, y1 = G.nodes[edge[1]]['pos']
         edge_x.append(x0)
@@ -135,14 +161,22 @@ def get_edge_trace(G):
                 xref="x",
                 yref="y",
                 showarrow=True,
-                arrowhead=1,
-                arrowsize=2
+                arrowhead=3,
+                arrowsize=weight[i] * 0.3
             )
         )
 
-    edge_trace = go.Scatter(
-        x=edge_x, y=edge_y,
-        line=dict(width=0.5, color='#888'),
-        hoverinfo='none',
-        mode='lines')
-    return edge_trace
+    x_link = np.array(edge_x).reshape(-1, 3).tolist()
+    y_link = np.array(edge_y).reshape(-1, 3).tolist()
+
+    # make multiple traces
+    edge_traces = []
+    for i in range(0, len(x_link)):
+        edge_traces.append(
+            go.Scatter(x=x_link[i],
+                       y=y_link[i],
+                       line=dict(
+                           color='#4c72b0',
+                           width=weight[i] * 0.5))
+        )
+    return edge_traces , annotation_list
