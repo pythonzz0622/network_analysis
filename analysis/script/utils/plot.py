@@ -6,29 +6,10 @@ from collections import Counter
 import igviz as ig
 import re
 import plotly.graph_objects as go
+import os
+import time
 from matplotlib import font_manager, rc
-
-def preprocessing(data_path , b_a , b_a_2 , loc):
-    raw = pd.read_excel(data_path)
-    # 이상치 제거
-    if loc == '경남':
-        raw = raw[raw['시도'] == '경남']
-
-    raw = raw[raw['거래금액'] > 0]
-    raw['사업분야'].value_counts()
-
-    # 주 제거
-    raw['업체명'] = raw['업체명'].apply(lambda x: re.sub('\(주\)', '', x))
-    raw['거래처명'] = raw['거래처명'].apply(lambda x: re.sub('\(주\)', '', x))
-
-    # 업체명의 사업분야가 IT제조이면서 사업분야가 IT제조인거 가져오기
-    raw = raw[(raw['업체명_사업분야'] == b_a) & (raw['사업분야'] == b_a_2)]
-
-    ## 기업 규모에 따른 나누기
-    ## raw = raw[raw['업체명사업체규모'] == '벤처기업']
-    return raw
-
-def get_data(raw, type = 4):
+def parse_data(raw, type = 4):
     # 업체명이나 거래처명이 0번 초과해서 언급된 것들 select 하기
     selected = [k for k, v in zip(Counter(raw['업체명'].tolist() + raw['거래처명'].tolist()).keys(),
                                   Counter(raw['업체명'].tolist() + raw['거래처명'].tolist()).values()) if v > 0]
@@ -83,12 +64,11 @@ def get_data(raw, type = 4):
 
         return node_list, cnt_list, w_list, top5
 
-class graph_top5():
-    def __init__(self , raw , type):
-        if type ==4:
-            self.node_list , self.cnt_list , self.w_list , self.top5 = get_data(raw , type)
-        else:
-            self.cnt = get_data(raw , type)
+class Network_graph():
+    def __init__(self , raw , show = True):
+        self.raw = raw
+
+        self.show = show
 
     def _get_node_trace(self , G , company):
 
@@ -173,50 +153,123 @@ class graph_top5():
                                width=weight[i] * 0.5))
             )
         return edge_traces , annotation_list
+    def _make_normal_plot(self , cnt ):
 
-    def top_5_plot(self):
-        for i in range(len(self.top5)):
-            cnt , w  = self.cnt_list[i] , self.w_list[i]
-            G = nx.DiGraph()
-
-            # Add nodes:
-            nodes = self.node_list[i]
-            G.add_nodes_from(nodes)
-
-            # Add edges or links between the nodes:
-            edges = cnt
-            G.add_edges_from(edges)
-            ig.plot(G, size_method="static")
-            edge_traces , annotation_list = self._get_edge_trace(G , w)
-            node_trace = self._get_node_trace(G , self.top5[i])
-
-            fig = go.Figure(
-                        data= [*edge_traces , node_trace],
-                         layout=go.Layout(
-                            title=f'{self.top5[i]} vs all',
-                            titlefont_size=16,
-                                            showlegend=False,
-                            margin=dict(b=20,l=5,r=5,t=40),
-                            xaxis=dict(showgrid=True, zeroline=False, showticklabels=False),
-                            yaxis=dict(showgrid=True, zeroline=False, showticklabels=False)),
-                            )
-
-            fig.update_layout(
-                annotations = annotation_list
-            )
-
-            fig.show()
-
-    def normal_plot(self , cnt):
-        plt.figure(figsize=(20, 20))
         G = nx.DiGraph()
-
         G.add_edges_from(cnt, relation='cnt')
 
         pos = nx.spring_layout(G)  # 각 노드, 엣지를 draw하기 위한 position 정보
-        relation = nx.get_edge_attributes(G, 'relation')
+        data = nx.draw_networkx_edges(G, pos, edgelist=cnt)
+        plt.close()
+        edge_x = []
+        edge_y = []
+        for data_i in data:
+            x0, y0 = data_i._posA_posB[0]
+            x1, y1 = data_i._posA_posB[1]
+            edge_x.append(x0)
+            edge_x.append(x1)
+            edge_x.append(None)
+            edge_y.append(y0)
+            edge_y.append(y1)
+            edge_y.append(None)
 
-        # nx.draw(G,pos, with_labels=True, edge_color='white')
-        nx.draw_networkx_edges(G, pos, edgelist=cnt, connectionstyle='arc3, rad = -0.2', arrowstyle='->', width=0.2)
-        nx.draw_networkx_labels(G, pos, font_family='AppleGothic', font_size=10)
-        plt.show()
+        edge_trace = go.Scatter(
+            x=edge_x, y=edge_y,
+            line=dict(width=0.5, color='#888'),
+            hoverinfo='none',
+            mode='lines')
+
+        node_x = []
+        node_y = []
+        node_text = []
+
+        for key, value in pos.items():
+            x, y = value[0], value[1]
+            node_x.append(x)
+            node_y.append(y)
+            node_text.append(key)
+
+        node_trace = go.Scatter(
+            x=node_x, y=node_y,
+            mode='markers+text',
+            marker=dict(
+                colorscale='purp',
+                reversescale=True,
+                line_width=2)
+            , textposition="top center"
+        )
+
+        node_trace['marker']['color'] = 70
+        node_trace['text'] = node_text
+
+        return edge_trace , node_trace
+    def _get_normal_edge_trace(self):
+
+        pass
+
+    def _get_normal_node_trace(self):
+        pass
+
+    def plot(self , title , type):
+        if type == 4:
+            node_list, cnt_list, w_list, top5 = parse_data(self.raw , type )
+            for i in range(len(top5)):
+                cnt , w  = cnt_list[i] , w_list[i]
+                G = nx.DiGraph()
+
+                # Add nodes:
+                nodes = node_list[i]
+                G.add_nodes_from(nodes)
+
+                # Add edges or links between the nodes:
+                edges = cnt
+                G.add_edges_from(edges)
+                ig.plot(G, size_method="static")
+                edge_traces , annotation_list = self._get_edge_trace(G , w)
+                node_trace = self._get_node_trace(G , top5[i])
+
+                fig = go.Figure(
+                            data= [*edge_traces , node_trace],
+                             layout=go.Layout(
+                                title=f'{title} {top5[i]}',
+                                titlefont_size=16,
+                                                showlegend=False,
+                                margin=dict(b=20,l=5,r=5,t=40),
+                                xaxis=dict(showgrid=True, zeroline=False, showticklabels=False),
+                                yaxis=dict(showgrid=True, zeroline=False, showticklabels=False)),
+                                )
+
+                fig.update_layout(
+                    annotations = annotation_list
+                )
+                # print(os.getcwd())
+                fig.write_image(f'../output/{title}_{top5[i]}.jpg')
+                time.sleep(0.5)
+
+
+                if self.show == False :
+                    plt.close()
+                else:
+                    fig.show()
+        if type != 4:
+            cnt = parse_data(self.raw , type )
+            edge_trace , node_trace = self._make_normal_plot(cnt)
+            fig = go.Figure(data=[edge_trace, node_trace],
+                            layout=go.Layout(
+                                title= f'{title} network',
+                                titlefont_size=16,
+                                showlegend=False,
+                                hovermode='closest',
+                                margin=dict(b=20, l=5, r=5, t=40),
+                                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
+                            )
+
+            fig.update_layout(width=1000,
+                              height=1000, )
+            fig.write_image(f'../output/{title}.jpg')
+
+            if self.show == False:
+                plt.close()
+            else:
+                fig.show()
