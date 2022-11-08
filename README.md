@@ -20,6 +20,7 @@ obj =plot.Network_graph(DF , show = True)
 
 # 판매처에 대한 plot 형성
 obj.plot(f'경남_IT_판매처' , 2)
+
 # 거래규모 Top5에 대한 plot 형성
 obj.plot(f'경남_IT_top5' , 4)
 
