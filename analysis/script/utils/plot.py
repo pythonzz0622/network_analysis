@@ -198,8 +198,8 @@ class Network_graph():
         # networkx로 기본적인 graph를 그림
         G = nx.DiGraph()
         G.add_edges_from(cnt, relation='cnt')
-        pos = nx.spring_layout(G)  # 각 노드, 엣지를 ddf하기 위한 position 정보
-        data = nx.ddf_networkx_edges(G, pos, edgelist=cnt)
+        pos = nx.spring_layout(G)  # 각 노드, 엣지의 position 정보
+        data = nx.get_networkx_edges(G, pos, edgelist=cnt)
         plt.close()
 
         edge_x = []
