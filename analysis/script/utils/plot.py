@@ -51,9 +51,13 @@ def parse_data(df, type = 4):
         cnt = cnt = [(a, b) for a, b in zip(temp['업체명'], temp['거래처명']) if (a in selected) & (b in selected)]
         return cnt
 
-    if type == 4:
+    if (type == 4) or (type == 5):
         # 구매처가 top5인 부분만 남기기
-        temp = df[df['거래구분'] == '구매처']
+        if type == 4:
+            temp = df[df['거래구분'] == '구매처']
+        if type == 5:
+            temp = df[df['거래구분'] == '판매처']
+
         top5 = temp.groupby(['업체명']).sum()['거래금액'].sort_values(ascending=False).index[:5]
 
         cnt_list = []
@@ -199,7 +203,7 @@ class Network_graph():
         G = nx.DiGraph()
         G.add_edges_from(cnt, relation='cnt')
         pos = nx.spring_layout(G)  # 각 노드, 엣지의 position 정보
-        data = nx.get_networkx_edges(G, pos, edgelist=cnt)
+        data = nx.draw_networkx_edges(G, pos, edgelist=cnt)
         plt.close()
 
         edge_x = []
@@ -256,7 +260,7 @@ class Network_graph():
     # type 4 : top5 plot
     def plot(self , title , type):
 
-        if type == 4:
+        if (type == 4) or (type == 5):
             node_list, cnt_list, w_list, top5 = parse_data(self.df , type )
 
             # top5 별로 그래프를 각각 그림 즉 5개 return
@@ -277,11 +281,16 @@ class Network_graph():
                 edge_traces , annotation_list = self._get_edge_trace(G , w)
                 node_trace = self._get_node_trace(G , top5[i])
 
-                # edge trace 와 Node를 활용해 ㅔㅣㅐ쌰ㅜㅎ
+                if type == 4:
+                    text = f'{title} {top5[i]} 구매처 rank {i}'
+                if type == 5:
+                    text = f'{title} {top5[i]} 판매처 rank {i}'
+
+                # edge trace 와 Node를 활용해
                 fig = go.Figure(
                             data= [*edge_traces , node_trace],
                              layout=go.Layout(
-                                title=f'{title} {top5[i]}',
+                                title= text,
                                 titlefont_size=16,
                                                 showlegend=False,
                                 margin=dict(b=20,l=5,r=5,t=40),
@@ -291,7 +300,7 @@ class Network_graph():
                 fig.update_layout(
                     annotations = annotation_list
                 )
-                fig.write_image(f'../output/{title}_{top5[i]}.jpg')
+                fig.write_image(f'../output/{title}_{top5[i]}_rank_{i}.jpg')
 
                 if self.show == False:
                     plt.close()
