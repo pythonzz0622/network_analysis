@@ -13,7 +13,8 @@ def make_svg(raw , title):
     obj.plot(f'{title} 거래처 + 구매처' , 1)
     obj.plot(f'{title} 판매처' , 2)
     obj.plot(f'{title} 구매처' , 3)
-    obj.plot(f'{title} top5' , 4)
+    obj.plot(f'{title} top5 구매처' , 4)
+    obj.plot(f'{title} top5 판매처', 5)
 
 # 경남에서 business_are 별로 plot saving
 bus_area = ['1.IT제조' , '3.SW' ,'2.IT서비스' ]

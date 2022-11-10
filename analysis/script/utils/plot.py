@@ -87,6 +87,40 @@ def parse_data(df, type = 4):
 
         return node_list, cnt_list, w_list, top5
 
+def get_arrow(G , edge , weight , i , type ):
+    if type == 4:
+        data = dict(
+            ax=G.nodes[edge[0]]["pos"][0],
+            ay=G.nodes[edge[0]]["pos"][1],
+            axref="x",
+            ayref="y",
+            x=G.nodes[edge[1]]["pos"][0] * 0.85
+              + G.nodes[edge[0]]["pos"][0] * 0.15,
+            y=G.nodes[edge[1]]["pos"][1] * 0.85
+              + G.nodes[edge[0]]["pos"][1] * 0.15,
+            xref="x",
+            yref="y",
+            showarrow=True,
+            arrowhead=3,
+            arrowsize=weight[i] * 0.3
+        )
+    if type == 5:
+        data = dict(
+            ax=G.nodes[edge[1]]["pos"][0],
+            ay=G.nodes[edge[1]]["pos"][1],
+            axref="x",
+            ayref="y",
+            x=G.nodes[edge[0]]["pos"][0] * 0.15
+              + G.nodes[edge[1]]["pos"][0] * 0.85,
+            y=G.nodes[edge[0]]["pos"][1] * 0.15
+              + G.nodes[edge[1]]["pos"][1] * 0.85,
+            xref="x",
+            yref="y",
+            showarrow=True,
+            arrowhead=3,
+            arrowsize=weight[i] * 0.3
+        )
+    return data
 class Network_graph():
     def __init__(self , df , show = True):
         '''
@@ -145,7 +179,7 @@ class Network_graph():
         return node_trace
 
     # network시각화 중 edge plot을 그리기 위한 함수
-    def _get_edge_trace(self , G  , weight):
+    def _get_edge_trace(self , G  , weight , type):
         #### make edge
         edge_x = []
         edge_y = []
@@ -153,8 +187,12 @@ class Network_graph():
 
         # networkx 를 활용해 그려진 Grpah 의 엣지 Position 을 얻기 위한 iteration
         for i, edge in enumerate(G.edges()):
-            x0, y0 = G.nodes[edge[0]]['pos']
-            x1, y1 = G.nodes[edge[1]]['pos']
+            if type == 4:
+                x0, y0 = G.nodes[edge[0]]['pos']
+                x1, y1 = G.nodes[edge[1]]['pos']
+            if type == 5:
+                x0, y0 = G.nodes[edge[1]]['pos']
+                x1, y1 = G.nodes[edge[0]]['pos']
             edge_x.append(x0)
             edge_x.append(x1)
             edge_x.append(None)
@@ -164,21 +202,7 @@ class Network_graph():
 
             # weight 값의 크기에 따라서 edge를 다르게 표현하기 위해 edge별로 각각 그려서 annotation_list를 만듦
             annotation_list.append(
-                dict(
-                    ax=G.nodes[edge[0]]["pos"][0],
-                    ay=G.nodes[edge[0]]["pos"][1],
-                    axref="x",
-                    ayref="y",
-                    x=G.nodes[edge[1]]["pos"][0] * 0.85
-                      + G.nodes[edge[0]]["pos"][0] * 0.15,
-                    y=G.nodes[edge[1]]["pos"][1] * 0.85
-                      + G.nodes[edge[0]]["pos"][1] * 0.15,
-                    xref="x",
-                    yref="y",
-                    showarrow=True,
-                    arrowhead=3,
-                    arrowsize=weight[i] * 0.3
-                )
+                get_arrow(G , edge ,weight , i , type)
             )
 
         x_link = np.array(edge_x).reshape(-1, 3).tolist()
@@ -278,19 +302,14 @@ class Network_graph():
                 ig.plot(G, size_method="static")
 
                 # get edge and node
-                edge_traces , annotation_list = self._get_edge_trace(G , w)
+                edge_traces , annotation_list = self._get_edge_trace(G , w , type)
                 node_trace = self._get_node_trace(G , top5[i])
-
-                if type == 4:
-                    text = f'{title} {top5[i]} 구매처 rank {i}'
-                if type == 5:
-                    text = f'{title} {top5[i]} 판매처 rank {i}'
 
                 # edge trace 와 Node를 활용해
                 fig = go.Figure(
                             data= [*edge_traces , node_trace],
                              layout=go.Layout(
-                                title= text,
+                                title= f'{title} {top5[i]} 구매처 rank {i}',
                                 titlefont_size=16,
                                                 showlegend=False,
                                 margin=dict(b=20,l=5,r=5,t=40),
@@ -300,14 +319,14 @@ class Network_graph():
                 fig.update_layout(
                     annotations = annotation_list
                 )
-                fig.write_image(f'../output/{title}_{top5[i]}_rank_{i}.jpg')
 
+                fig.write_image(f'../output/{title}_{top5[i]}_rank_{i}.jpg')
                 if self.show == False:
                     plt.close()
                 else:
                     fig.show()
 
-        if type != 4:
+        if (type == 1) or (type == 2) or (type == 3):
             # get 연결 리스트
             cnt = parse_data(self.df , type )
             edge_trace , node_trace = self._make_normal_plot(cnt)
