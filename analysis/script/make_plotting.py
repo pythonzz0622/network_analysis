@@ -39,6 +39,7 @@ for i , bus_i in enumerate(bus_area):
 
 # 전국 data frame 불러오기
 DF_A = prepro.preprocessing('../data/다시최종_전국.xlsx' )
+make_svg(DF_A, '전국_전국')
 
 scale = ['대기업' , '벤처기업', '중소기업']
 # 전국의 모든 기업에 대해 plotting
