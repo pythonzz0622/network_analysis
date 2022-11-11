@@ -32,3 +32,9 @@ obj.plot(f'경남_IT_top5' , 4)
 
 ![image](https://user-images.githubusercontent.com/90737305/200571166-b4fb5159-37d6-4a7e-b36d-d0fd64200a4f.png)
 
+
+
+<!--  이번 프로젝트에서 보완 할점 설계부문에서 
+    top5 plot을 일반 plot 만들때랑 데이터를 불러 오는 형식이 달라서 설계가 조금 매끄럽지 못했다
+    다음에 만들때는 dat를 주고받는 형태가 다양하니까 data를 반환할 때 dict형태로 반환하는게 좀 더 매끄럽게 될 것같다. 
+-->

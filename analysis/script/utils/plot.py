@@ -48,7 +48,7 @@ def parse_data(df, type = 4):
     if type == 3:
         # 선택된 곳중에서 거래가 구매처인 곳의 금액을 가중치로 넘기기
         temp = df[df['거래구분'] == '구매처']
-        cnt = cnt = [(a, b) for a, b in zip(temp['업체명'], temp['거래처명']) if (a in selected) & (b in selected)]
+        cnt = [(a, b) for a, b in zip(temp['업체명'], temp['거래처명']) if (a in selected) & (b in selected)]
         return cnt
 
     if (type == 4) or (type == 5):
