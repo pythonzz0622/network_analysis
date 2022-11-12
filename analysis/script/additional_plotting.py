@@ -8,11 +8,11 @@ def make_svg(raw, title):
   obj = plot.Network_graph(raw, show=False)
 
   # 4가지 유형의 plot을 saving
-  obj.plot(f'{title} 거래처 + 구매처', 1)
-  obj.plot(f'{title} 판매처', 2)
-  obj.plot(f'{title} 구매처', 3)
-  obj.plot(f'{title} top5 구매처', 4)
-  obj.plot(f'{title} top5 판매처', 5)
+  obj.plottig(f'{title} 거래처 + 구매처', 1)
+  obj.plottig(f'{title} 판매처', 2)
+  obj.plottig(f'{title} 구매처', 3)
+  obj.plottig(f'{title} top5 구매처', 4)
+  obj.plottig(f'{title} top5 판매처', 5)
 # # 전국 data frame 불러오기
 DF_A = prepro.preprocessing('../data/다시최종_전국.xlsx' )
 
