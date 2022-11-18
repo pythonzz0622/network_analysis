@@ -1,7 +1,9 @@
 import pandas as pd
 import re
 
-def preprocessing(data_path):
+
+def preprocessing(data_path: str) -> object:
+
     df = pd.read_excel(data_path)
     # 이상치 제거
     df = df[df['거래금액'] > 0]
